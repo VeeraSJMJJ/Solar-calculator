@@ -4,3 +4,4 @@ gspread
 oauth2client
 xhtml2pdf
 pandas
+Flask-SQLAlchemy==3.1.1
