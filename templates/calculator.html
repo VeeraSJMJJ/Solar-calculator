@@ -1,1 +1,132 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Solar Calculator - Sunrad</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 40px;
+            background-color: #f4f4f4;
+        }
+
+        h1 {
+            color: #004d40;
+        }
+
+        form {
+            background-color: #fff;
+            padding: 20px;
+            border-radius: 10px;
+            width: 600px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+        }
+
+        label {
+            display: block;
+            margin-top: 10px;
+            font-weight: bold;
+        }
+
+        input, select {
+            width: 100%;
+            padding: 8px;
+            margin-top: 5px;
+            box-sizing: border-box;
+            border-radius: 5px;
+            border: 1px solid #ccc;
+        }
+
+        button {
+            background-color: #00897b;
+            color: white;
+            padding: 10px 15px;
+            margin-top: 20px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+
+        button:hover {
+            background-color: #00695c;
+        }
+
+        .result {
+            margin-top: 30px;
+            padding: 20px;
+            background-color: #e0f2f1;
+            border-left: 6px solid #004d40;
+        }
+    </style>
+</head>
+<body>
+    <h1>Sunrad Solar Savings Calculator</h1>
+
+    <form method="POST">
+        <!-- ✅ Customer Contact Info -->
+        <label for="name">Name*</label>
+        <input type="text" name="name" required>
+
+        <label for="phone">Phone Number*</label>
+        <input type="text" name="phone" required>
+
+        <label for="email">Email*</label>
+        <input type="email" name="email" required>
+
+        <label for="location">Location</label>
+        <input type="text" name="location">
+
+        <!-- ✅ Energy Usage Info -->
+        <label for="category">Category</label>
+        <select name="category" required>
+            {% for cat in tariffs %}
+            <option value="{{ cat }}">{{ cat }}</option>
+            {% endfor %}
+        </select>
+
+        <label for="billing_cycle">Billing Cycle</label>
+        <select name="billing_cycle">
+            <option value="Monthly">Monthly</option>
+            <option value="Bi-monthly">Bi-monthly</option>
+        </select>
+
+        <label for="units">Units Consumed (as per bill)</label>
+        <input type="number" name="units" step="0.01" required>
+
+        <label for="tariff">Tariff (₹/unit)</label>
+        <input type="number" name="tariff" step="0.01">
+
+        <label for="monthly_bill">Monthly Bill (₹)</label>
+        <input type="number" name="monthly_bill" step="0.01" required>
+
+        <button type="submit">Calculate</button>
+    </form>
+
+    {% if result %}
+    <div class="result">
+        <h2>Estimated Solar System:</h2>
+        <p><strong>System Size:</strong> {{ result.system_size }} kW</p>
+        <p><strong>Estimated Cost:</strong> ₹{{ "{:,.2f}".format(result.estimated_cost) }}</p>
+        <p><strong>Subsidy:</strong> ₹{{ "{:,.2f}".format(result.subsidy) }}</p>
+        <p><strong>Net Cost:</strong> ₹{{ "{:,.2f}".format(result.net_cost) }}</p>
+        <p><strong>Monthly Savings:</strong> ₹{{ "{:,.2f}".format(result.monthly_savings) }}</p>
+        <p><strong>Annual Savings:</strong> ₹{{ "{:,.2f}".format(result.annual_savings) }}</p>
+        <p><strong>Payback Period:</strong> {{ result.payback_years }} years</p>
+
+        <form method="POST" action="/export-excel">
+            {% for key, value in result.items() %}
+            <input type="hidden" name="{{ key }}" value="{{ value }}">
+            {% endfor %}
+            <input type="hidden" name="category" value="{{ request.form['category'] }}">
+            <input type="hidden" name="billing_cycle" value="{{ request.form['billing_cycle'] }}">
+            <input type="hidden" name="units" value="{{ request.form['units'] }}">
+            <input type="hidden" name="tariff" value="{{ request.form['tariff'] }}">
+            <input type="hidden" name="monthly_bill" value="{{ request.form['monthly_bill'] }}">
+
+            <button type="submit">Export to Excel</button>
+        </form>
+    </div>
+    {% endif %}
+</body>
+</html>
 
