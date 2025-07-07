@@ -2,17 +2,18 @@ from flask import Flask, render_template, request, send_file
 from flask_sqlalchemy import SQLAlchemy
 import pandas as pd
 from io import BytesIO
+from xhtml2pdf import pisa
 import os
-import json
 import gspread
 from oauth2client.service_account import ServiceAccountCredentials
 
 app = Flask(__name__)
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///calculator.db'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+
 db = SQLAlchemy(app)
 
-# 🚀 STEP 1: Updated Database Model with contact fields
+# Database model
 class Calculation(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(100))
@@ -35,22 +36,21 @@ class Calculation(db.Model):
 with app.app_context():
     db.create_all()
 
+# Constants
 TARIFFS = {
     "Residential": 5.5,
     "Commercial": 8.10,
     "Industrial": 9.50
 }
+COST_PER_KW = 65000  # Installation cost per kW
 
-COST_PER_KW = 65000  # Avg installation cost per kW
-
-# 🚀 STEP 2: Google Sheets Appending Function (Corrected Indentation)
+# Google Sheets append
 def append_to_google_sheet(data_dict):
     scope = [
         "https://spreadsheets.google.com/feeds",
         "https://www.googleapis.com/auth/drive"
     ]
-    creds_dict = json.loads(os.environ['GOOGLE_CREDENTIALS_JSON'])
-    creds = ServiceAccountCredentials.from_json_keyfile_dict(creds_dict, scope)
+    creds = ServiceAccountCredentials.from_json_keyfile_name("credentials.json", scope)
     client = gspread.authorize(creds)
     sheet = client.open("SolarCalculatorData").sheet1
 
@@ -72,28 +72,23 @@ def append_to_google_sheet(data_dict):
         data_dict["annual_savings"],
         data_dict["payback_years"]
     ]
-
     sheet.append_row(row)
 
-# 🚀 STEP 3: Calculator Route
+# Main route
 @app.route("/", methods=["GET", "POST"])
 def calculator():
     result = None
     if request.method == "POST":
-        # Get contact fields
         name = request.form['name']
         phone = request.form['phone']
         email = request.form['email']
         location = request.form.get('location', '')
-
-        # Get solar input fields
         category = request.form['category']
         billing_cycle = request.form['billing_cycle']
         units = float(request.form['units'])
         tariff = float(request.form.get('tariff') or TARIFFS[category])
         monthly_bill = float(request.form['monthly_bill'])
 
-        # Solar logic
         multiplier = 0.5 if billing_cycle == "Bi-monthly" else 1
         monthly_units = units * multiplier
         system_size = round(monthly_units / 120, 2)
@@ -114,7 +109,6 @@ def calculator():
         annual_savings = monthly_savings * 12
         payback_years = round(net_cost / annual_savings, 2) if annual_savings else 0
 
-        # Save to DB
         calc = Calculation(
             name=name,
             phone=phone,
@@ -136,7 +130,6 @@ def calculator():
         db.session.add(calc)
         db.session.commit()
 
-        # Save to Google Sheet
         data_dict = {
             "name": name,
             "phone": phone,
@@ -157,7 +150,6 @@ def calculator():
         }
         append_to_google_sheet(data_dict)
 
-        # Return results
         result = {
             "system_size": system_size,
             "estimated_cost": estimated_cost,
@@ -170,7 +162,7 @@ def calculator():
 
     return render_template("calculator.html", result=result, tariffs=TARIFFS)
 
-# ✅ STEP 4: Excel Export
+# Export to Excel
 @app.route("/export-excel", methods=["POST"])
 def export_excel():
     form_data = request.form
@@ -195,5 +187,7 @@ def export_excel():
     output.seek(0)
     return send_file(output, download_name="Solar_Report.xlsx", as_attachment=True)
 
+# ✅ Run on dynamic port for Render
 if __name__ == "__main__":
-    app.run(debug=True)
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host="0.0.0.0", port=port, debug=True)
